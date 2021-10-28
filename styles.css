@@ -1,0 +1,18 @@
+body {
+    font-family: monospace;
+}
+
+.upload-button {
+    padding: 5px 10px;
+    background: skyblue;
+    border: 1px solid blue;
+    cursor: pointer;
+}
+.upload-button input {
+    height: 0;
+    width: 0;
+}
+
+h1 {
+    font-size: 2em;
+}
