@@ -1,11 +1,11 @@
-export async function getAudioBufferFromFile(file) {
+export async function getAudioBufferFromFile(file, audioCtx) {
     const buffer = await file.arrayBuffer();
     const audioBuffer = await audioCtx.decodeAudioData(buffer);
 
     return audioBuffer;
 }
 
-export function getAnalyser(fftSize = 2048) {
+export function getAnalyser(audioCtx, fftSize = 2048) {
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = fftSize;
 
@@ -16,14 +16,20 @@ export function getAnalyser(fftSize = 2048) {
     return analyser;
 }
 
-async function loopFuncForOfflineContext(func, context, inc = .05) {
+async function loopFuncForOfflineContext(ctx, func, inc = .1) {
     let isFinished = false;
 
     const stopFunc = () => isFinished = true;
     ctx.addEventListener('complete', stopFunc);
 
     while (!isFinished) {
-        await ctx.suspend(time += .05);
+        const time = ctx.currentTime + inc;
+        try {
+            await ctx.suspend(time);
+        } catch (e) {
+            console.log(e)
+            return;
+        }
 
         func(stopFunc);
     
@@ -31,7 +37,7 @@ async function loopFuncForOfflineContext(func, context, inc = .05) {
     }
 }
 
-export const analyze = async (ctx, analyzerNode) => {
+export const analyze = async (audioCtx, analyzerNode) => {
     const bufferLength = analyzerNode.frequencyBinCount;
 
     const WIDTH = 1920;
@@ -41,24 +47,29 @@ export const analyze = async (ctx, analyzerNode) => {
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
     const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'red';
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
     let canvasX = 0;
-    await loopFuncForOfflineContext(ctx, (stop) => {
+    await loopFuncForOfflineContext(audioCtx, (stop) => {
         if (canvasX > WIDTH) return stop();
 
         const dataArray = new Uint8Array(bufferLength);
-        AnalyserNode.getByteFrequencyData(dataArray);
+        analyzerNode.getByteFrequencyData(dataArray);
+
+        const lineHeight = bufferLength / HEIGHT;
 
         for (let i = 0; i < bufferLength; i++) {
             const strength = dataArray[i] / 128;
             const yPos = i/bufferLength * HEIGHT;
 
             ctx.fillStyle = `rgba(0,0,0,${strength})`;
-            ctx.fillRect(canvasX, yPos, 1, 1);
+            ctx.fillRect(canvasX, yPos, 2, lineHeight);
         }
-
+        
+        console.log({ canvasX })
         canvasX++;
     });
 
-    return ctx.toDataURL();
+    return canvas.toDataURL();
 }
